@@ -1,0 +1,9 @@
+# pyscript.toml — Spectrogram tool
+# No packages needed; all DSP is via Web Audio API.
+# Python runtime used only for loading-overlay lifecycle.
+
+name = "spectrogram"
+debug = false
+
+[packages]
+# intentionally empty

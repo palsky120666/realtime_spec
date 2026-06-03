@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="../../coi-serviceworker.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spectrogram — ObieWebApp 2</title>
+
+  <link rel="stylesheet" href="../../css/theme.css">
+  <link rel="stylesheet" href="./spectrogram.css">
+
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+  <!-- PyScript 2026.3.1 -->
+  <link  rel="stylesheet" href="https://pyscript.net/releases/2026.3.1/core.css">
+  <script type="module"   src="https://pyscript.net/releases/2026.3.1/core.js"></script>
+
+  <!-- Shared JS — order matters -->
+  <script src="../../js/plotly-theme.js"></script>
+  <script src="../../js/audio.js"></script>
+  <script src="../../js/obie-settings.js"></script>
+  <script src="../../js/browser-check.js"></script>
+  <script src="./spectrogram.js" defer></script>
+</head>
+<body>
+
+<div id="loading" class="loading-overlay">
+  <div class="spin"></div>
+  <div class="load-title">Loading PyScript + NumPy…</div>
+  <div class="load-sub">First load may take 15–30 s</div>
+</div>
+
+<div class="spectrogram-page">
+
+  <!-- Header -->
+  <header class="obie-header">
+    <a class="brand" href="../../index.html">
+      <div class="logo-icon">🎻</div>
+      <h1>ObieWebApp 2</h1>
+    </a>
+    <span class="crumb">· Spectrogram</span>
+    <div class="gap"></div>
+    <a class="btn" href="../../index.html" style="font-size:0.75rem;padding:3px 9px">← All tools</a>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="spectrogram-toolbar">
+    <button id="spec-start-btn" class="tb-btn accent" onclick="spectrogramStart()">▶ Start</button>
+    <button id="spec-stop-btn"  class="tb-btn"        onclick="spectrogramStop()"  disabled>■ Stop</button>
+    <div class="tb-sep"></div>
+    <label class="tb-label">FFT size</label>
+    <select id="spec-fft-size" class="tb-select" onchange="spectrogramSetFFT(this.value)">
+      <option value="1024">1 k</option>
+      <option value="2048" selected>2 k</option>
+      <option value="4096">4 k</option>
+      <option value="8192">8 k</option>
+    </select>
+    <div class="tb-sep"></div>
+    <label class="tb-label">dB floor</label>
+    <select id="spec-floor" class="tb-select" onchange="spectrogramSetFloor(this.value)">
+      <option value="-120">−120</option>
+      <option value="-100" selected>−100</option>
+      <option value="-80">−80</option>
+      <option value="-60">−60</option>
+    </select>
+    <div class="tb-sep"></div>
+    <label class="tb-label">Speed</label>
+    <select id="spec-speed" class="tb-select" onchange="spectrogramSetSpeed(this.value)">
+      <option value="1">×1</option>
+      <option value="2" selected>×2</option>
+      <option value="4">×4</option>
+    </select>
+    <div class="tb-flex"></div>
+    <span id="spec-status" class="spec-status-txt">Not running</span>
+    <button class="tb-btn" onclick="spectrogramHelp()">Help</button>
+  </div>
+
+  <!-- Spectrogram body: freq-axis label + canvas + time-axis label -->
+  <div class="spectrogram-body">
+
+    <!-- Frequency axis (vertical, left side — runs bottom=low freq, top=high freq) -->
+    <div class="spec-freq-axis" id="spec-freq-axis">
+      <!-- tick labels injected by JS -->
+    </div>
+
+    <!-- Main canvas -->
+    <div class="spec-canvas-wrap">
+      <canvas id="spec-canvas"></canvas>
+      <!-- Crosshair readout -->
+      <div id="spec-readout" class="spec-readout" style="display:none"></div>
+    </div>
+
+    <!-- Right gutter: colour scale -->
+    <div class="spec-scale-wrap">
+      <canvas id="spec-scale" width="20" height="256"></canvas>
+      <div class="spec-scale-labels">
+        <span id="spec-scale-top">0 dB</span>
+        <span id="spec-scale-bot">−100 dB</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Time axis (horizontal, below canvas — ticks injected by JS) -->
+  <div class="spec-time-axis-row">
+    <div class="spec-time-axis-spacer"></div>
+    <div class="spec-time-axis" id="spec-time-axis"></div>
+    <div class="spec-scale-spacer"></div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="spec-footer">
+    Signal processing powered by
+    <a href="https://github.com/chrisbuerginrogers/ObieApp" target="_blank" rel="noopener">ObieWebApp</a>
+  </footer>
+
+</div>
+
+<!-- PyScript — minimal; no Python DSP needed for live Web Audio FFT -->
+<script type="py" src="./main.py" config="./pyscript.toml" async></script>
+
+</body>
+</html>
