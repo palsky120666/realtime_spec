@@ -1,81 +1,107 @@
-/* spectrogram.css — ObieWebApp 2  */
-/* Uses CSS custom properties from ../../css/theme.css where available;
-   falls back to hard-coded dark values so the tool works standalone.    */
+/* spectrogram.css — ObieWebApp 2 */
 
-/* ── Page shell ────────────────────────────────────────────────────────── */
-.spectrogram-page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: var(--bg, #0d0d0d);
-  color: var(--fg, #e0e0e0);
-  font-family: var(--font-ui, 'Segoe UI', system-ui, sans-serif);
+/* ── Page ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #0d0d0d;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
   overflow: hidden;
 }
 
-/* ── Toolbar ────────────────────────────────────────────────────────────── */
+.spectrogram-page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: #0d0d0d;
+  overflow: hidden;
+}
+
+/* ── Fallback header (if theme.css absent) ───────────────────────────────── */
+.obie-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #111;
+  border-bottom: 1px solid #222;
+  flex-shrink: 0;
+  min-height: 38px;
+}
+.brand { display:flex; align-items:center; gap:6px; text-decoration:none; color:#e0e0e0; }
+.brand h1 { margin:0; font-size:0.95rem; font-weight:600; }
+.logo-icon { font-size:1.1rem; }
+.crumb { color:#888; font-size:0.85rem; }
+.gap { flex:1; }
+.btn {
+  background:#222; color:#e0e0e0; border:1px solid #333;
+  border-radius:4px; padding:3px 10px; font-size:0.78rem;
+  cursor:pointer; text-decoration:none;
+}
+.btn:hover { background:#2a2a2a; }
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
 .spectrogram-toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: var(--toolbar-bg, #161616);
-  border-bottom: 1px solid var(--border, #2a2a2a);
-  flex-shrink: 0;
   flex-wrap: wrap;
+  gap: 5px;
+  padding: 5px 10px;
+  background: #141414;
+  border-bottom: 1px solid #222;
+  flex-shrink: 0;
 }
 
 .tb-sep {
-  width: 1px;
-  height: 20px;
-  background: var(--border, #2a2a2a);
+  width: 1px; height: 22px;
+  background: #2a2a2a;
   margin: 0 2px;
 }
+.tb-flex { flex: 1; min-width: 4px; }
+.tb-label { font-size: 0.7rem; color: #888; white-space: nowrap; }
 
-.tb-flex { flex: 1; }
-
-.tb-label {
-  font-size: 0.72rem;
-  color: var(--fg-dim, #888);
+.tb-btn {
+  background: #1e1e1e;
+  color: #e0e0e0;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
   white-space: nowrap;
+  transition: background 0.15s;
+}
+.tb-btn:hover:not(:disabled) { background: #2a2a2a; }
+.tb-btn:disabled { color: #555; cursor: not-allowed; }
+.tb-btn.accent {
+  background: #007a94; color: #fff; border-color: #0096b4; font-weight: 600;
+}
+.tb-btn.accent:hover:not(:disabled) { background: #0096b4; }
+.tb-btn.tb-active {
+  background: #003d4f; color: #00d4ff; border-color: #00aac8;
 }
 
 .tb-select {
-  background: var(--input-bg, #222);
-  color: var(--fg, #e0e0e0);
-  border: 1px solid var(--border, #333);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.78rem;
-  cursor: pointer;
+  background: #1a1a1a; color: #e0e0e0;
+  border: 1px solid #333; border-radius: 4px;
+  padding: 2px 5px; font-size: 0.75rem; cursor: pointer;
 }
 
-/* Accent button (Start) */
-.tb-btn.accent {
-  background: var(--accent, #00b4d8);
-  color: #000;
-  border-color: var(--accent, #00b4d8);
-  font-weight: 600;
+.tb-input {
+  background: #1a1a1a; color: #e0e0e0;
+  border: 1px solid #333; border-radius: 4px;
+  padding: 2px 5px; font-size: 0.75rem;
+  width: 64px;
 }
-.tb-btn.accent:hover {
-  background: var(--accent-hover, #0096c7);
-}
-.tb-btn.accent:disabled {
-  background: var(--border, #333);
-  color: var(--fg-dim, #666);
-  border-color: var(--border, #333);
-  cursor: not-allowed;
-}
+.tb-input:focus { outline: 1px solid #0096b4; }
 
-/* ── Status text ────────────────────────────────────────────────────────── */
 .spec-status-txt {
-  font-size: 0.75rem;
-  color: var(--fg-dim, #888);
-  white-space: nowrap;
-  margin-right: 6px;
+  font-size: 0.72rem; color: #888; white-space: nowrap;
 }
 
-/* ── Body: freq-axis | canvas | scale ───────────────────────────────────── */
+/* ── Main body ───────────────────────────────────────────────────────────── */
 .spectrogram-body {
   display: flex;
   flex: 1;
@@ -83,164 +109,183 @@
   overflow: hidden;
 }
 
-/* Frequency axis — vertical strip on the left */
+/* Freq axis */
 .spec-freq-axis {
-  width: 52px;
-  flex-shrink: 0;
+  width: 48px; flex-shrink: 0;
   position: relative;
-  background: var(--bg, #0d0d0d);
-  border-right: 1px solid var(--border, #222);
-  /* ticks are absolutely positioned by JS */
+  background: #0d0d0d;
+  border-right: 1px solid #1e1e1e;
 }
-
-.spec-freq-axis .freq-tick {
+.freq-tick {
   position: absolute;
   right: 6px;
-  font-size: 0.62rem;
-  color: var(--fg-dim, #888);
-  transform: translateY(50%);
+  font-size: 0.6rem;
+  color: #777;
   white-space: nowrap;
   line-height: 1;
 }
-.spec-freq-axis .freq-tick::after {
+.freq-tick::after {
   content: '';
   position: absolute;
-  right: -7px;
-  top: 50%;
-  width: 5px;
-  height: 1px;
-  background: var(--border, #333);
+  right: -7px; top: 50%;
+  width: 5px; height: 1px;
+  background: #2a2a2a;
   transform: translateY(-50%);
 }
 
-/* Canvas wrapper — fills remaining space */
+/* Canvas */
 .spec-canvas-wrap {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-  background: #000;
+  flex: 1; position: relative; overflow: hidden; background: #000;
 }
-
 #spec-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
+  display: block; width: 100%; height: 100%;
   image-rendering: pixelated;
 }
-
-/* Crosshair readout tooltip */
 .spec-readout {
-  position: absolute;
-  top: 6px;
-  left: 8px;
-  background: rgba(0,0,0,0.75);
-  color: var(--fg, #e0e0e0);
-  font-size: 0.72rem;
-  padding: 3px 7px;
-  border-radius: 4px;
+  position: absolute; left: 8px;
+  background: rgba(0,0,0,0.72);
+  color: #e0e0e0; font-size: 0.7rem;
+  padding: 2px 7px; border-radius: 3px;
   pointer-events: none;
   font-variant-numeric: tabular-nums;
 }
 
-/* Colour scale column on the right */
+/* Scale */
 .spec-scale-wrap {
-  width: 36px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 4px 0;
-  background: var(--bg, #0d0d0d);
-  border-left: 1px solid var(--border, #222);
-  gap: 4px;
+  width: 34px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  align-items: center; padding: 4px 0;
+  background: #0d0d0d;
+  border-left: 1px solid #1e1e1e;
+  gap: 3px;
 }
-
 #spec-scale {
-  width: 18px;
-  flex: 1;
-  max-height: calc(100% - 40px);
-  border: 1px solid var(--border, #333);
+  width: 18px; flex: 1;
+  max-height: calc(100% - 36px);
+  border: 1px solid #2a2a2a;
   border-radius: 2px;
   image-rendering: pixelated;
 }
-
 .spec-scale-labels {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
+  display: flex; flex-direction: column;
   align-items: center;
-  font-size: 0.56rem;
-  color: var(--fg-dim, #888);
-  gap: 2px;
+  font-size: 0.55rem; color: #666; gap: 1px;
   padding-bottom: 2px;
 }
 
-/* ── Time axis row (below canvas) ───────────────────────────────────────── */
+/* ── Time axis ───────────────────────────────────────────────────────────── */
 .spec-time-axis-row {
-  display: flex;
-  flex-shrink: 0;
-  height: 22px;
-  background: var(--bg, #0d0d0d);
-  border-top: 1px solid var(--border, #222);
+  display: flex; flex-shrink: 0; height: 20px;
+  background: #0d0d0d;
+  border-top: 1px solid #1e1e1e;
 }
-
-.spec-time-axis-spacer {
-  width: 52px;
-  flex-shrink: 0;
-}
-
-.spec-scale-spacer {
-  width: 36px;
-  flex-shrink: 0;
-}
-
+.spec-time-axis-spacer { width: 48px; flex-shrink: 0; }
+.spec-scale-spacer     { width: 34px; flex-shrink: 0; }
 .spec-time-axis {
-  flex: 1;
-  position: relative;
-  /* tick spans injected by JS */
+  flex: 1; position: relative;
 }
-
-.spec-time-axis .time-tick {
-  position: absolute;
-  top: 4px;
-  font-size: 0.62rem;
-  color: var(--fg-dim, #888);
+.time-tick {
+  position: absolute; top: 3px;
+  font-size: 0.6rem; color: #777;
   transform: translateX(-50%);
   white-space: nowrap;
 }
 
-/* ── Footer ─────────────────────────────────────────────────────────────── */
+/* ── Footer ──────────────────────────────────────────────────────────────── */
 .spec-footer {
-  text-align: center;
-  font-size: 0.68rem;
-  color: var(--fg-dim, #666);
-  padding: 4px 0 6px;
-  flex-shrink: 0;
-  border-top: 1px solid var(--border, #1a1a1a);
+  text-align: center; font-size: 0.65rem; color: #555;
+  padding: 3px 0 5px; flex-shrink: 0;
+  border-top: 1px solid #181818;
 }
-.spec-footer a {
-  color: var(--accent, #00b4d8);
-  text-decoration: none;
-}
+.spec-footer a { color: #0096b4; text-decoration: none; }
 .spec-footer a:hover { text-decoration: underline; }
 
-/* ── Standalone loading overlay fallback ────────────────────────────────── */
-/* (theme.css provides .loading-overlay; these rules are a safety net) */
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-box {
+  background: #181818;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  width: min(480px, 95vw);
+  max-height: 85vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid #272727;
+  font-size: 0.88rem; font-weight: 600; color: #e0e0e0;
+}
+.modal-close {
+  background: none; border: none; color: #888;
+  font-size: 1rem; cursor: pointer; padding: 0 2px;
+}
+.modal-close:hover { color: #e0e0e0; }
+.modal-body {
+  padding: 14px; overflow-y: auto; flex: 1;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.modal-hint { margin: 0; font-size: 0.75rem; color: #888; }
+
+/* Band add row */
+.band-add-row {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.color-pick {
+  width: 34px; height: 26px;
+  padding: 1px; border-radius: 4px;
+  border: 1px solid #444; background: #222; cursor: pointer;
+}
+
+/* Band list */
+.band-list {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 220px; overflow-y: auto;
+}
+.band-empty { font-size: 0.75rem; color: #555; padding: 6px 0; }
+.band-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px;
+  background: #1e1e1e; border-radius: 4px;
+  border: 1px solid #2a2a2a;
+}
+.band-swatch {
+  width: 12px; height: 12px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.band-label { flex: 1; font-size: 0.78rem; color: #ccc; }
+.band-del {
+  background: none; border: none; color: #666;
+  font-size: 0.75rem; cursor: pointer; padding: 0 2px;
+}
+.band-del:hover { color: #ff6b6b; }
+
+/* Modal actions */
+.modal-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.act-btn {
+  background: #1e1e1e; color: #ccc;
+  border: 1px solid #333; border-radius: 4px;
+  padding: 5px 14px; font-size: 0.78rem; cursor: pointer;
+}
+.act-btn:hover { background: #2a2a2a; }
+.act-btn.accent {
+  background: #007a94; color: #fff; border-color: #0096b4;
+}
+.act-btn.accent:hover { background: #0096b4; }
+
+/* Loading overlay fallback */
 .loading-overlay {
   position: fixed; inset: 0;
   background: #0d0d0d;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 12px;
-  z-index: 9999;
+  gap: 12px; z-index: 9999;
 }
-.spin {
-  width: 36px; height: 36px;
-  border: 3px solid #333;
-  border-top-color: var(--accent, #00b4d8);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.load-title { font-size: 1rem; color: #e0e0e0; }
-.load-sub   { font-size: 0.8rem; color: #888; }

@@ -5,32 +5,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spectrogram — ObieWebApp 2</title>
-
   <link rel="stylesheet" href="../../css/theme.css">
   <link rel="stylesheet" href="./spectrogram.css">
-
-  <!-- Shared JS — order matters (plotly-theme keeps CSS vars in sync) -->
   <script src="../../js/plotly-theme.js"></script>
   <script src="../../js/audio.js"></script>
   <script src="../../js/obie-settings.js"></script>
   <script src="../../js/browser-check.js"></script>
   <script src="./spectrogram.js" defer></script>
-
-  <!-- Hide loading overlay immediately — no PyScript needed for this tool -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      var ov = document.getElementById('loading');
-      if (ov) ov.style.display = 'none';
-    });
-  </script>
 </head>
 <body>
 
-<div id="loading" class="loading-overlay">
-  <div class="spin"></div>
-  <div class="load-title">Loading PyScript + NumPy…</div>
-  <div class="load-sub">First load may take 15–30 s</div>
-</div>
+<div id="loading" class="loading-overlay" style="display:none"></div>
 
 <div class="spectrogram-page">
 
@@ -47,52 +32,67 @@
 
   <!-- Toolbar -->
   <div class="spectrogram-toolbar">
+
+    <!-- Transport -->
     <button id="spec-start-btn" class="tb-btn accent" onclick="spectrogramStart()">▶ Start</button>
     <button id="spec-stop-btn"  class="tb-btn"        onclick="spectrogramStop()"  disabled>■ Stop</button>
+    <button id="spec-play-btn"  class="tb-btn"        onclick="spectrogramPlay()"  disabled title="Play last 10 seconds of audio">⏵ Play 10 s</button>
+
     <div class="tb-sep"></div>
-    <label class="tb-label">FFT size</label>
+
+    <!-- Y axis scale -->
+    <button id="spec-log-btn" class="tb-btn tb-active" onclick="spectrogramToggleLog()" title="Switch log / linear frequency axis">Log</button>
+
+    <!-- Freq range -->
+    <label class="tb-label">f min</label>
+    <input id="spec-freq-min" class="tb-input" type="number" value="20"    min="1"     max="23999" step="1">
+    <label class="tb-label">max</label>
+    <input id="spec-freq-max" class="tb-input" type="number" value="20000" min="2"     max="24000" step="1">
+    <button class="tb-btn" onclick="spectrogramApplyFreqRange()">Apply</button>
+
+    <div class="tb-sep"></div>
+
+    <!-- FFT / floor / speed -->
+    <label class="tb-label">FFT</label>
     <select id="spec-fft-size" class="tb-select" onchange="spectrogramSetFFT(this.value)">
       <option value="1024">1 k</option>
       <option value="2048" selected>2 k</option>
       <option value="4096">4 k</option>
       <option value="8192">8 k</option>
     </select>
-    <div class="tb-sep"></div>
-    <label class="tb-label">dB floor</label>
+
+    <label class="tb-label">Floor</label>
     <select id="spec-floor" class="tb-select" onchange="spectrogramSetFloor(this.value)">
       <option value="-120">−120</option>
       <option value="-100" selected>−100</option>
       <option value="-80">−80</option>
       <option value="-60">−60</option>
     </select>
-    <div class="tb-sep"></div>
+
     <label class="tb-label">Speed</label>
     <select id="spec-speed" class="tb-select" onchange="spectrogramSetSpeed(this.value)">
       <option value="1">×1</option>
       <option value="2" selected>×2</option>
       <option value="4">×4</option>
     </select>
+
+    <div class="tb-sep"></div>
+
+    <!-- Bands -->
+    <button class="tb-btn" onclick="spectrogramOpenSettings()">⚙ Bands</button>
+
     <div class="tb-flex"></div>
     <span id="spec-status" class="spec-status-txt">Not running</span>
     <button class="tb-btn" onclick="spectrogramHelp()">Help</button>
   </div>
 
-  <!-- Spectrogram body: freq-axis label + canvas + time-axis label -->
+  <!-- Main display -->
   <div class="spectrogram-body">
-
-    <!-- Frequency axis (vertical, left side — runs bottom=low freq, top=high freq) -->
-    <div class="spec-freq-axis" id="spec-freq-axis">
-      <!-- tick labels injected by JS -->
-    </div>
-
-    <!-- Main canvas -->
+    <div class="spec-freq-axis" id="spec-freq-axis"></div>
     <div class="spec-canvas-wrap">
       <canvas id="spec-canvas"></canvas>
-      <!-- Crosshair readout -->
       <div id="spec-readout" class="spec-readout" style="display:none"></div>
     </div>
-
-    <!-- Right gutter: colour scale -->
     <div class="spec-scale-wrap">
       <canvas id="spec-scale" width="20" height="256"></canvas>
       <div class="spec-scale-labels">
@@ -100,22 +100,49 @@
         <span id="spec-scale-bot">−100 dB</span>
       </div>
     </div>
-
   </div>
 
-  <!-- Time axis (horizontal, below canvas — ticks injected by JS) -->
+  <!-- Time axis -->
   <div class="spec-time-axis-row">
     <div class="spec-time-axis-spacer"></div>
     <div class="spec-time-axis" id="spec-time-axis"></div>
     <div class="spec-scale-spacer"></div>
   </div>
 
-  <!-- Footer -->
   <footer class="spec-footer">
     Signal processing powered by
     <a href="https://github.com/chrisbuerginrogers/ObieApp" target="_blank" rel="noopener">ObieWebApp</a>
   </footer>
+</div>
 
+<!-- ── Bands modal ──────────────────────────────────────────────────────── -->
+<div id="spec-modal" class="modal-overlay" style="display:none"
+     onclick="if(event.target===this)spectrogramCloseSettings()">
+  <div class="modal-box">
+
+    <div class="modal-header">
+      <span>Frequency Band Overlays</span>
+      <button class="modal-close" onclick="spectrogramCloseSettings()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <p class="modal-hint">Bands are shown as dashed lines on the spectrogram while running.</p>
+
+      <div class="band-add-row">
+        <input id="band-name"  class="tb-input" type="text"   placeholder="Name"  style="width:72px">
+        <input id="band-freq"  class="tb-input" type="number" placeholder="Hz"    style="width:88px" min="1" max="24000" step="0.1">
+        <input id="band-color" type="color" value="#ff6b6b" class="color-pick">
+        <button class="act-btn accent" onclick="spectrogramAddBand()">+ Add</button>
+      </div>
+
+      <div id="band-list" class="band-list"></div>
+
+      <div class="modal-actions">
+        <button class="act-btn" onclick="spectrogramCloseSettings()">Close</button>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 </body>
