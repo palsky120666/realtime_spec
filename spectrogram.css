@@ -294,7 +294,7 @@ body {
 .loud-panel {
   position: absolute;
   top: 8px;
-  right: 8px;
+  left: 8px;
   width: 186px;
   background: rgba(10, 10, 10, 0.88);
   border: 1px solid #2a2a2a;
