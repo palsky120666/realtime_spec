@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resizeCanvas();
     buildFreqAxis();
     buildTimeAxis();
+    updateBandLabels();
   });
 
   _canvas.addEventListener('mousemove', onMouseMove);
@@ -202,6 +203,7 @@ async function startSpectrogram() {
     setElDisabled('spec-play-btn',false);
     setStatus('Running — L+R  |  '+(sr/1000).toFixed(0)+' kHz  |  FFT '+_fftSize);
     buildFreqAxis(); buildTimeAxis();
+    updateBandLabels();
     loop();
   } catch(err) { setStatus('Mic error: '+err.message); console.error(err); }
 }
@@ -253,6 +255,7 @@ function applyFreqRange() {
   _freqMin=Math.max(1,Math.min(mn,nyq-1));
   _freqMax=Math.max(_freqMin+1,Math.min(mx,nyq));
   syncFreqInputs(); buildFreqAxis();
+  updateBandLabels();
   setStatus('Freq: '+fmtHz(_freqMin)+' – '+fmtHz(_freqMax));
 }
 function openModal()  { const m=document.getElementById('spec-modal'); if(m) m.style.display='flex'; }
@@ -277,17 +280,20 @@ window.removeBand=removeBand;
 function renderBandList() {
   const list=document.getElementById('band-list');
   if (!list) return;
-  if (!_bands.length) { list.innerHTML='<div class="band-empty">No bands</div>'; return; }
-  list.innerHTML='';
-  _bands.forEach((b,i)=>{
-    const fl=b.freq>=1000?(b.freq/1000).toFixed(3).replace(/\.?0+$/,'')+' kHz':b.freq+' Hz';
-    const row=document.createElement('div');
-    row.className='band-row';
-    row.innerHTML=`<span class="band-swatch" style="background:${b.color}"></span>`+
-      `<span class="band-label">${b.name} — ${fl}</span>`+
-      `<button class="band-del" onclick="removeBand(${i})">✕</button>`;
-    list.appendChild(row);
-  });
+  if (!_bands.length) { list.innerHTML='<div class="band-empty">No bands</div>'; }
+  else {
+    list.innerHTML='';
+    _bands.forEach((b,i)=>{
+      const fl=b.freq>=1000?(b.freq/1000).toFixed(3).replace(/\.?0+$/,'')+' kHz':b.freq+' Hz';
+      const row=document.createElement('div');
+      row.className='band-row';
+      row.innerHTML=`<span class="band-swatch" style="background:${b.color}"></span>`+
+        `<span class="band-label">${b.name} — ${fl}</span>`+
+        `<button class="band-del" onclick="removeBand(${i})">✕</button>`;
+      list.appendChild(row);
+    });
+  }
+  updateBandLabels();
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -425,23 +431,62 @@ function drawLoudnessGraph() {
 
 /* ════════════════════════════════════════════════════════════════════════
    BAND OVERLAY
+   Dashed lines drawn on canvas each frame; labels are HTML elements
+   injected into the freq-axis div so they're never overwritten by the scroll.
 ════════════════════════════════════════════════════════════════════════ */
-function drawBandLines(H,nyquist) {
-  if (!_ctx||!_canvas||!_bands.length) return;
-  const W=_canvas.width;
+function drawBandLines(H, nyquist) {
+  if (!_ctx || !_canvas) return;
+  const W = _canvas.width;
   _ctx.save();
-  _ctx.font='bold 10px monospace'; _ctx.lineWidth=1; _ctx.setLineDash([5,4]);
+  _ctx.lineWidth = 1;
+  _ctx.setLineDash([5, 4]);
   for (const b of _bands) {
-    const f=b.freq;
-    if (f<_freqMin||f>_freqMax||f>nyquist) continue;
-    const y=freqToY(f,H,nyquist);
-    if (y<0||y>H) continue;
-    _ctx.strokeStyle=b.color;
-    _ctx.beginPath(); _ctx.moveTo(0,y); _ctx.lineTo(W,y); _ctx.stroke();
-    _ctx.fillStyle=b.color;
-    _ctx.fillText(b.name,6,Math.max(12,y-3));
+    const f = b.freq;
+    if (f < _freqMin || f > _freqMax || f > nyquist) continue;
+    const y = freqToY(f, H, nyquist);
+    if (y < 0 || y > H) continue;
+    _ctx.strokeStyle = b.color;
+    _ctx.beginPath(); _ctx.moveTo(0, y); _ctx.lineTo(W, y); _ctx.stroke();
   }
   _ctx.restore();
+}
+
+/** Rebuild persistent band label elements in the freq-axis div */
+function updateBandLabels() {
+  const axis = document.getElementById('spec-freq-axis');
+  if (!axis) return;
+  // Remove old band labels
+  axis.querySelectorAll('.band-label-tag').forEach(el => el.remove());
+  if (!_running && _bands.length === 0) return;
+
+  const nyquist = _audioCtx ? _audioCtx.sampleRate / 2 : 24000;
+  const H = _canvas ? _canvas.height : axis.clientHeight;
+  if (!H) return;
+
+  for (const b of _bands) {
+    const f = b.freq;
+    if (f < _freqMin || f > _freqMax || f > nyquist) continue;
+    const y = freqToY(f, H, nyquist);
+    if (y < 2 || y > H - 2) continue;
+
+    const tag = document.createElement('span');
+    tag.className = 'band-label-tag';
+    tag.textContent = b.name;
+    tag.style.cssText = `
+      position:absolute;
+      right:0;
+      top:${y - 8}px;
+      background:${b.color};
+      color:#000;
+      font:bold 8px monospace;
+      padding:0 3px;
+      border-radius:2px 0 0 2px;
+      white-space:nowrap;
+      line-height:14px;
+      pointer-events:none;
+    `;
+    axis.appendChild(tag);
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════════
