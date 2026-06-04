@@ -68,11 +68,42 @@
     <span id="spec-status" class="spec-status-txt">Not running</span>
   </div>
 
+
   <div class="spectrogram-body">
     <div class="spec-freq-axis" id="spec-freq-axis"></div>
     <div class="spec-canvas-wrap">
       <canvas id="spec-canvas"></canvas>
       <div id="spec-readout" class="spec-readout" style="display:none"></div>
+
+      <!-- Loudness overlay — pure HTML, zero canvas interference -->
+      <div id="loud-panel" class="loud-panel">
+        <div class="loud-panel-title">LOUDNESS <span class="loud-panel-ref">Moore 2016</span></div>
+
+        <div class="loud-row">
+          <span class="loud-row-label">ST</span>
+          <div class="loud-bar-track">
+            <div class="loud-bar-fill" id="loud-bar-st"></div>
+            <div class="loud-bar-tick" style="left:40%"></div>
+            <div class="loud-bar-tick" style="left:60%"></div>
+            <div class="loud-bar-tick" style="left:80%"></div>
+          </div>
+          <span class="loud-row-val" id="loud-val-st">— ph</span>
+        </div>
+
+        <div class="loud-row">
+          <span class="loud-row-label">LT</span>
+          <div class="loud-bar-track">
+            <div class="loud-bar-fill" id="loud-bar-lt" style="background:#4d96ff"></div>
+            <div class="loud-bar-tick" style="left:40%"></div>
+            <div class="loud-bar-tick" style="left:60%"></div>
+            <div class="loud-bar-tick" style="left:80%"></div>
+          </div>
+          <span class="loud-row-val" id="loud-val-lt">— ph</span>
+        </div>
+
+        <canvas id="loud-graph" class="loud-graph"></canvas>
+      </div>
+
     </div>
     <div class="spec-scale-wrap">
       <canvas id="spec-scale" width="20" height="256"></canvas>

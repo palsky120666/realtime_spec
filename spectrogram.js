@@ -44,6 +44,7 @@ let _bands = [
 let _canvas = null, _ctx = null;
 let _scaleCanvas = null, _scaleCtx = null;
 let _colCtx = null, _colBuf = null;
+let _graphCanvas = null, _gCtx = null;  // small graph inside the HTML loudness panel
 
 // Loudness history ring (for the mini graph)
 const HIST_LEN  = 300;
@@ -65,6 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
   _ctx         = _canvas.getContext('2d', { willReadFrequently: true });
   _scaleCanvas = document.getElementById('spec-scale');
   _scaleCtx    = _scaleCanvas.getContext('2d');
+  _graphCanvas = document.getElementById('loud-graph');
+  _gCtx        = _graphCanvas ? _graphCanvas.getContext('2d') : null;
 
   resizeCanvas();
   window.addEventListener('resize', () => {
@@ -107,7 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
   buildTimeAxis();
   renderBandList();
   syncFreqInputs();
-  drawLoudnessIdle();
 });
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -214,7 +216,6 @@ function stopSpectrogram() {
   setElDisabled('spec-start-btn',false);
   setElDisabled('spec-stop-btn',true);
   setStatus('Stopped');
-  drawLoudnessIdle();
 }
 
 function playback() {
@@ -357,131 +358,69 @@ function updateLoudness() {
   _ltHist[_histIdx]=res.longTermSones;
   _histIdx=(_histIdx+1)%HIST_LEN;
 
-  drawLoudnessOverlay(res.shortTermPhons, res.longTermPhons);
+  updateLoudnessDom(res.shortTermPhons, res.longTermPhons);
+  drawLoudnessGraph();
 }
 
-/* ── Loudness overlay rendered directly on the spectrogram canvas ───────
-   Top-right corner: two VU bars + scrolling graph + numeric readout.     */
-function drawLoudnessOverlay(stPh, ltPh) {
-  if (!_ctx||!_canvas||_canvas.width<20) return;
+/* ── Update the HTML loudness panel (bars + values) — no canvas drawing ── */
+function updateLoudnessDom(stPh, ltPh) {
+  const stPct = Math.max(0, Math.min(100, stPh)) + '%';
+  const ltPct = Math.max(0, Math.min(100, ltPh)) + '%';
 
-  const W=_canvas.width, H=_canvas.height;
-  const PAD=8, PW=170, PH=110;
-  const x0=W-PW-PAD, y0=PAD;
+  const stBar = document.getElementById('loud-bar-st');
+  const ltBar = document.getElementById('loud-bar-lt');
+  const stVal = document.getElementById('loud-val-st');
+  const ltVal = document.getElementById('loud-val-lt');
 
-  const g=_ctx;
-  g.save();
+  if (stBar) {
+    stBar.style.width = stPct;
+    stBar.style.background = stPh < 70 ? '#6bcb77' : stPh < 85 ? '#ffd93d' : '#ff6b6b';
+  }
+  if (ltBar) ltBar.style.width = ltPct;
+  if (stVal) stVal.textContent = stPh.toFixed(1) + ' ph';
+  if (ltVal) ltVal.textContent = ltPh.toFixed(1) + ' ph';
+}
 
-  // ── Background panel ───────────────────────────────────────────────
-  g.globalAlpha=0.82;
-  g.fillStyle='#0d0d0d';
-  g.beginPath();
-  g.roundRect ? g.roundRect(x0,y0,PW,PH,6) : g.rect(x0,y0,PW,PH);
-  g.fill();
-  g.globalAlpha=1;
+/* ── Draw history graph on the small <canvas id="loud-graph"> ────────── */
+function drawLoudnessGraph() {
+  if (!_gCtx || !_graphCanvas) return;
 
-  // ── Border ─────────────────────────────────────────────────────────
-  g.strokeStyle='#2a2a2a'; g.lineWidth=1;
-  g.beginPath();
-  g.roundRect ? g.roundRect(x0,y0,PW,PH,6) : g.rect(x0,y0,PW,PH);
-  g.stroke();
-
-  // ── Title ──────────────────────────────────────────────────────────
-  g.fillStyle='#aaa'; g.font='bold 9px monospace';
-  g.fillText('LOUDNESS  (Moore 2016)',x0+6,y0+12);
-
-  // ── VU bars ────────────────────────────────────────────────────────
-  const barX=x0+6, barW=PW-12, barH=9, barY1=y0+18, barY2=y0+32;
-
-  // Short-term bar
-  const stPct=Math.max(0,Math.min(1,stPh/100));
-  g.fillStyle='#1a1a1a'; g.fillRect(barX,barY1,barW,barH);
-  const stColor = stPh<70?'#6bcb77':stPh<85?'#ffd93d':'#ff6b6b';
-  g.fillStyle=stColor; g.fillRect(barX,barY1,barW*stPct,barH);
-  g.fillStyle='#888'; g.font='8px monospace';
-  g.fillText('ST',barX,barY1-2);
-  g.fillStyle='#fff'; g.font='bold 8px monospace';
-  g.fillText(stPh.toFixed(1)+' ph',barX+barW*stPct+2,barY1+7);
-
-  // Long-term bar
-  const ltPct=Math.max(0,Math.min(1,ltPh/100));
-  g.fillStyle='#1a1a1a'; g.fillRect(barX,barY2,barW,barH);
-  g.fillStyle='#4d96ff'; g.fillRect(barX,barY2,barW*ltPct,barH);
-  g.fillStyle='#888'; g.font='8px monospace';
-  g.fillText('LT',barX,barY2-2);
-  g.fillStyle='#fff'; g.font='bold 8px monospace';
-  g.fillText(ltPh.toFixed(1)+' ph',barX+barW*ltPct+2,barY2+7);
-
-  // Tick marks at 40, 60, 80 phon
-  g.strokeStyle='rgba(255,255,255,0.15)'; g.lineWidth=1;
-  for (const p of [40,60,80]) {
-    const tx=barX+barW*(p/100);
-    g.beginPath(); g.moveTo(tx,barY1); g.lineTo(tx,barY1+barH); g.stroke();
-    g.beginPath(); g.moveTo(tx,barY2); g.lineTo(tx,barY2+barH); g.stroke();
+  // Match canvas pixel size to its CSS size to avoid blurring
+  const W = _graphCanvas.clientWidth  || 180;
+  const H = _graphCanvas.clientHeight || 60;
+  if (_graphCanvas.width !== W || _graphCanvas.height !== H) {
+    _graphCanvas.width  = W;
+    _graphCanvas.height = H;
   }
 
-  // ── Mini scrolling graph ───────────────────────────────────────────
-  const gx=barX, gy=y0+46, gw=barW, gh=PH-(46+6);
-  g.fillStyle='#111'; g.fillRect(gx,gy,gw,gh);
+  const g = _gCtx;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = '#0a0a0a';
+  g.fillRect(0, 0, W, H);
 
-  // grid at 40, 60, 80 phon
-  g.strokeStyle='#222'; g.lineWidth=1;
-  for (const p of [40,60,80]) {
-    const ly=gy+gh*(1-p/100);
-    g.beginPath(); g.moveTo(gx,ly); g.lineTo(gx+gw,ly); g.stroke();
-    g.fillStyle='#444'; g.font='7px monospace';
-    g.fillText(p,gx+1,ly-1);
+  // Grid lines at 40, 60, 80 phon
+  g.strokeStyle = '#222'; g.lineWidth = 1;
+  g.fillStyle   = '#444'; g.font = '7px monospace';
+  for (const p of [40, 60, 80]) {
+    const y = H * (1 - p/100);
+    g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke();
+    g.fillText(p, 2, y - 1);
   }
 
-  // Draw LT (blue, behind)
-  const drawLine=(hist,color)=>{
-    g.beginPath(); g.strokeStyle=color; g.lineWidth=1.2;
-    for (let i=0;i<HIST_LEN;i++) {
-      const idx=(_histIdx+i)%HIST_LEN;
-      const s=hist[idx];
-      const ph=s>=1?40+(10/Math.log10(2))*Math.log10(s):40*Math.pow(s+0.0005,0.35);
-      const px2=gx+gw*(i/(HIST_LEN-1));
-      const py=gy+gh*(1-Math.max(0,Math.min(1,ph/100)));
-      i===0?g.moveTo(px2,py):g.lineTo(px2,py);
+  // History lines
+  const drawLine = (hist, color) => {
+    g.beginPath(); g.strokeStyle = color; g.lineWidth = 1.5;
+    for (let i = 0; i < HIST_LEN; i++) {
+      const s  = hist[(_histIdx + i) % HIST_LEN];
+      const ph = s >= 1 ? 40 + (10/Math.log10(2)) * Math.log10(s) : 40 * Math.pow(s + 0.0005, 0.35);
+      const x  = W * (i / (HIST_LEN - 1));
+      const y  = H * (1 - Math.max(0, Math.min(1, ph / 100)));
+      i === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
     }
     g.stroke();
   };
-  drawLine(_ltHist,'#4d96ff');
-  drawLine(_stHist,'#6bcb77');
-
-  // ── Numeric readout top-right of graph ─────────────────────────────
-  g.font='bold 9px monospace';
-  g.fillStyle='#6bcb77'; g.textAlign='right';
-  g.fillText('ST '+stPh.toFixed(1),gx+gw-1,gy+10);
-  g.fillStyle='#4d96ff';
-  g.fillText('LT '+ltPh.toFixed(1),gx+gw-1,gy+20);
-  g.textAlign='left';
-
-  g.restore();
-}
-
-function drawLoudnessIdle() {
-  if (!_ctx||!_canvas||_canvas.width<20) return;
-  const W=_canvas.width;
-  const PAD=8, PW=170, PH=110;
-  const x0=W-PW-PAD, y0=PAD;
-  const g=_ctx;
-  g.save();
-  g.globalAlpha=0.75;
-  g.fillStyle='#0d0d0d';
-  g.beginPath();
-  g.roundRect?g.roundRect(x0,y0,PW,PH,6):g.rect(x0,y0,PW,PH);
-  g.fill();
-  g.globalAlpha=1;
-  g.strokeStyle='#2a2a2a'; g.lineWidth=1;
-  g.beginPath();
-  g.roundRect?g.roundRect(x0,y0,PW,PH,6):g.rect(x0,y0,PW,PH);
-  g.stroke();
-  g.fillStyle='#555'; g.font='9px monospace'; g.textAlign='center';
-  g.fillText('LOUDNESS (Moore 2016)',x0+PW/2,y0+PH/2-6);
-  g.fillText('Start recording',x0+PW/2,y0+PH/2+8);
-  g.textAlign='left';
-  g.restore();
+  drawLine(_ltHist, '#4d96ff');
+  drawLine(_stHist, '#6bcb77');
 }
 
 /* ════════════════════════════════════════════════════════════════════════
