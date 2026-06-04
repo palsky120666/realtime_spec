@@ -7,17 +7,16 @@
   <title>Spectrogram — ObieWebApp 2</title>
   <link rel="stylesheet" href="../../css/theme.css">
   <link rel="stylesheet" href="./spectrogram.css">
-  <!-- shared JS (may 404 on standalone server — spectrogram.js doesn't depend on them) -->
   <script src="../../js/plotly-theme.js"></script>
   <script src="../../js/audio.js"></script>
   <script src="../../js/obie-settings.js"></script>
   <script src="../../js/browser-check.js"></script>
-  <!-- tool JS — NO defer so functions are available synchronously -->
+  <!-- Loudness model must load before spectrogram.js -->
+  <script src="./loudness.js"></script>
   <script src="./spectrogram.js"></script>
 </head>
 <body>
 
-<!-- Loading overlay hidden by JS on DOMContentLoaded; also hidden by default here -->
 <div id="loading" class="loading-overlay" style="display:none"></div>
 
 <div class="spectrogram-page">
@@ -33,25 +32,19 @@
     <a class="btn" href="../../index.html" style="font-size:0.75rem;padding:3px 9px">← All tools</a>
   </header>
 
-  <!-- Toolbar — all buttons wired via addEventListener in spectrogram.js -->
+  <!-- Toolbar -->
   <div class="spectrogram-toolbar">
-
     <button id="spec-start-btn" class="tb-btn accent">▶ Start</button>
     <button id="spec-stop-btn"  class="tb-btn" disabled>■ Stop</button>
-    <button id="spec-play-btn"  class="tb-btn" disabled title="Play last 10 s of audio">⏵ Play 10 s</button>
-
+    <button id="spec-play-btn"  class="tb-btn" disabled title="Play last 10 s">⏵ Play 10 s</button>
     <div class="tb-sep"></div>
-
-    <button id="spec-log-btn" class="tb-btn tb-active" title="Toggle log / linear frequency axis">Log</button>
-
+    <button id="spec-log-btn" class="tb-btn tb-active" title="Toggle log/linear frequency axis">Log</button>
     <label class="tb-label">f min</label>
-    <input id="spec-freq-min" class="tb-input" type="number" value="20"    min="1"     max="23999">
+    <input id="spec-freq-min" class="tb-input" type="number" value="20"    min="1"   max="23999">
     <label class="tb-label">max</label>
-    <input id="spec-freq-max" class="tb-input" type="number" value="20000" min="2"     max="24000">
+    <input id="spec-freq-max" class="tb-input" type="number" value="20000" min="2"   max="24000">
     <button id="spec-apply-btn" class="tb-btn">Apply</button>
-
     <div class="tb-sep"></div>
-
     <label class="tb-label">FFT</label>
     <select id="spec-fft-size" class="tb-select">
       <option value="1024">1 k</option>
@@ -59,7 +52,6 @@
       <option value="4096">4 k</option>
       <option value="8192">8 k</option>
     </select>
-
     <label class="tb-label">Floor</label>
     <select id="spec-floor" class="tb-select">
       <option value="-120">−120</option>
@@ -67,44 +59,118 @@
       <option value="-80">−80</option>
       <option value="-60">−60</option>
     </select>
-
     <label class="tb-label">Speed</label>
     <select id="spec-speed" class="tb-select">
       <option value="1">×1</option>
       <option value="2" selected>×2</option>
       <option value="4">×4</option>
     </select>
-
     <div class="tb-sep"></div>
-
     <button id="spec-bands-btn" class="tb-btn">⚙ Bands</button>
-
     <div class="tb-flex"></div>
     <span id="spec-status" class="spec-status-txt">Not running</span>
   </div>
 
-  <!-- Main display -->
-  <div class="spectrogram-body">
-    <div class="spec-freq-axis" id="spec-freq-axis"></div>
-    <div class="spec-canvas-wrap">
-      <canvas id="spec-canvas"></canvas>
-      <div id="spec-readout" class="spec-readout" style="display:none"></div>
-    </div>
-    <div class="spec-scale-wrap">
-      <canvas id="spec-scale" width="20" height="256"></canvas>
-      <div class="spec-scale-labels">
-        <span id="spec-scale-top">0 dB</span>
-        <span id="spec-scale-bot">−100 dB</span>
+  <!-- ══ MAIN LAYOUT: spectrogram left, loudness panel right ══════════════ -->
+  <div class="main-layout">
+
+    <!-- Spectrogram column -->
+    <div class="spec-column">
+      <div class="spectrogram-body">
+        <div class="spec-freq-axis" id="spec-freq-axis"></div>
+        <div class="spec-canvas-wrap">
+          <canvas id="spec-canvas"></canvas>
+          <div id="spec-readout" class="spec-readout" style="display:none"></div>
+        </div>
+        <div class="spec-scale-wrap">
+          <canvas id="spec-scale" width="20" height="256"></canvas>
+          <div class="spec-scale-labels">
+            <span id="spec-scale-top">0 dB</span>
+            <span id="spec-scale-bot">−100 dB</span>
+          </div>
+        </div>
+      </div>
+      <div class="spec-time-axis-row">
+        <div class="spec-time-axis-spacer"></div>
+        <div class="spec-time-axis" id="spec-time-axis"></div>
+        <div class="spec-scale-spacer"></div>
       </div>
     </div>
-  </div>
 
-  <!-- Time axis -->
-  <div class="spec-time-axis-row">
-    <div class="spec-time-axis-spacer"></div>
-    <div class="spec-time-axis" id="spec-time-axis"></div>
-    <div class="spec-scale-spacer"></div>
-  </div>
+    <!-- ══ Loudness panel ══════════════════════════════════════════════════ -->
+    <div class="loud-panel">
+
+      <div class="loud-title">
+        Loudness
+        <span class="loud-subtitle">Moore et al. (2016)</span>
+      </div>
+
+      <!-- Numeric readouts -->
+      <div class="loud-grid">
+        <div class="loud-cell">
+          <div class="loud-val" id="loud-st-phons">—</div>
+          <div class="loud-key">Short-term<br>phon</div>
+        </div>
+        <div class="loud-cell">
+          <div class="loud-val" id="loud-lt-phons">—</div>
+          <div class="loud-key">Long-term<br>phon</div>
+        </div>
+        <div class="loud-cell">
+          <div class="loud-val loud-val-sm" id="loud-st-sones">—</div>
+          <div class="loud-key">Short-term<br>sone</div>
+        </div>
+        <div class="loud-cell">
+          <div class="loud-val loud-val-sm" id="loud-lt-sones">—</div>
+          <div class="loud-key">Long-term<br>sone</div>
+        </div>
+      </div>
+
+      <!-- Gauge bars -->
+      <div class="loud-bars">
+        <div class="loud-bar-row">
+          <span class="loud-bar-label">ST</span>
+          <div class="loud-bar-track">
+            <div class="loud-bar-fill" id="loud-bar-st" style="width:0%"></div>
+            <!-- reference ticks -->
+            <div class="loud-tick" style="left:40%" title="40 ph"></div>
+            <div class="loud-tick" style="left:60%" title="60 ph"></div>
+            <div class="loud-tick" style="left:80%" title="80 ph"></div>
+          </div>
+          <span class="loud-bar-end">100</span>
+        </div>
+        <div class="loud-bar-row">
+          <span class="loud-bar-label">LT</span>
+          <div class="loud-bar-track">
+            <div class="loud-bar-fill" id="loud-bar-lt" style="width:0%;background:#4d96ff"></div>
+            <div class="loud-tick" style="left:40%"></div>
+            <div class="loud-tick" style="left:60%"></div>
+            <div class="loud-tick" style="left:80%"></div>
+          </div>
+          <span class="loud-bar-end">ph</span>
+        </div>
+      </div>
+
+      <!-- Scrolling graph -->
+      <div class="loud-graph-wrap">
+        <canvas id="loud-canvas"></canvas>
+      </div>
+
+      <!-- Legend -->
+      <div class="loud-legend">
+        <span class="legend-dot" style="background:#6bcb77"></span> Short-term &nbsp;
+        <span class="legend-dot" style="background:#4d96ff"></span> Long-term
+      </div>
+
+      <!-- Reference -->
+      <div class="loud-ref">
+        Binaural TVL model per<br>
+        Moore et al., <em>Trends in Hearing</em> 2016<br>
+        DOI: 10.1177/2331216516682698
+      </div>
+
+    </div><!-- end loud-panel -->
+
+  </div><!-- end main-layout -->
 
   <footer class="spec-footer">
     Signal processing powered by
@@ -115,33 +181,26 @@
 <!-- ══ Bands modal ══════════════════════════════════════════════════════════ -->
 <div id="spec-modal" class="modal-overlay" style="display:none">
   <div class="modal-box">
-
     <div class="modal-header">
       <span>Frequency Band Overlays</span>
       <button id="spec-modal-close" class="modal-close">✕</button>
     </div>
-
     <div class="modal-body">
       <p class="modal-hint">Bands show as dashed lines on the spectrogram.</p>
-
       <div class="band-add-row">
         <input id="band-name"  class="tb-input" type="text"   placeholder="Name"  style="width:70px">
         <input id="band-freq"  class="tb-input" type="number" placeholder="Hz"    style="width:84px" min="1" max="24000" step="0.1">
         <input id="band-color" type="color" value="#ff6b6b" class="color-pick">
         <button id="band-add-btn" class="act-btn accent">+ Add</button>
       </div>
-
       <div id="band-list" class="band-list"></div>
-
       <div class="modal-actions">
         <button class="act-btn" id="spec-modal-close2">Close</button>
       </div>
     </div>
-
   </div>
 </div>
 
-<!-- Wire the second Close button after DOM is ready -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var b = document.getElementById('spec-modal-close2');
